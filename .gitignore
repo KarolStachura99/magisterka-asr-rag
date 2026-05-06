@@ -1,0 +1,15 @@
+magisterka_env/
+venv/
+env/
+
+*.mp3
+*.wav
+*.m4a
+
+*.pt
+*.bin
+*.gguf
+
+__pycache__/
+*.pyc
+.DS_Store
