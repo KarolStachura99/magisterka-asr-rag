@@ -30,7 +30,7 @@ wer = jiwer.wer(
 )
 
 print(f"\n" + "="*50)
-print(f" 🎯 WSKAŹNIK BŁĘDÓW (WER): {wer * 100:.2f}%")
+print(f"  WSKAŹNIK BŁĘDÓW (WER): {wer * 100:.2f}%")
 print("="*50)
 
 # 5. Wizualizacja błędów
