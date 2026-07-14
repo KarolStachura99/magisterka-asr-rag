@@ -1,0 +1,51 @@
+[25.10s -> 33.10s] Dzień dobry, witam wszystkich ponownie i teraz na tych laboratoriach opowimy sobie
+[33.10s -> 40.10s] tego o klasyfikacji. Klasyfikacji, druga część dzisiaj się skupimy na
+[40.10s -> 48.10s] doboższych hipej programetów w walidacji krzyżowej badań i jakości modelu
+[48.10s -> 55.10s] i dalszych etapach. No mówimy sobie, mówimy sobie wszystkie elementy,
+[55.10s -> 62.10s] które gdzieś tam powinne się znaleźć. I dzisiaj i jutro na konwersytetorie
+[62.10s -> 68.10s] jak też sobie opowimy o konkretnych modelach, konkretnych modelach, które oprócz
+[68.10s -> 72.10s] tego naszego bądź bęczpajkowego, czyli regesji logistycznej mogą być
+[72.10s -> 76.10s] używane, czyli tych najbardziej popularnej, najbardziej użytecknych, czyli
+[76.10s -> 81.10s] wszystkich opań, tylko trzeba decydujny random, forest, wszystkich
+[81.10s -> 87.10s] bólstowych, bólstowe algoritmy, regesji, bólst i wszystkich
+[87.10s -> 92.10s] związanych z ensom, legning, opowimy sobie właśnie o SVM,
+[92.10s -> 99.10s] zaprojd we których maszyni i tak dalej. I powiemy jakie są tam
+[99.10s -> 104.10s] typy parametry, jak w jaki sposób je tutaj dobiegać.
+[104.10s -> 121.74s] Dobra i tak. Ok, czyli ostatnim razem zakończyliśmy,
+[121.74s -> 126.74s] zakończyliśmy na tym, że właśnie opowiedzieliśmy sobie o czyszczeniu,
+[126.74s -> 134.74s] opowiedzieliśmy sobie dokładnie jakie są techniki, techniki,
+[134.74s -> 140.74s] techniki, cykbekujących wartości, co powinniśmy z nimi robić,
+[140.74s -> 144.74s] kiedy robujemy, kiedy imputujemy, jakie są metody imputacji,
+[144.74s -> 149.74s] czyli tam imputacja średnią, medianą, imputacja stratyfikowana,
+[149.74s -> 154.74s] imputacja za pomocą modeli, czyli np. na najbliższych sąsiadów
+[154.74s -> 158.74s] do tego, żebyśmy imputowali, opowiedzieliśmy sobie
+[158.74s -> 163.74s] różnych wartości, brakujących, czyli o misignodę,
+[163.74s -> 167.74s] do misignodranu, misignodranu, misignodranu, misignodranu,
+[167.74s -> 170.74s] czyli wszystkie wszystkie te typy i cok z każdym typem możemy
+[170.74s -> 174.74s] zrobić, iż czego on wynika. Później opowiedzieliśmy sobie
+[174.74s -> 179.74s] o skalowaniu normalizacji, tak, mówiliśmy sobie o kiedy
+[179.74s -> 183.74s] skalujemy, kiedy normalizujemy, czy musieliśmy się rozstrzybiegło się nam
+[183.74s -> 193.74s] min max scale, standard normalizacji, i dzięki temu właśnie opowiedzieliśmy
+[193.74s -> 199.74s] sobie, kiedy jest istotny, kiedy jest istotny dla jakich modeli
+[199.74s -> 202.74s] mówiliśmy sobie, że modelę tam, gdzie bazujemy na odległość
+[202.74s -> 206.74s] jak euklidesowych, nie wiem właśnie, na najbliższych sąsiadów,
+[206.74s -> 210.74s] za przykład wektury maszyjna, rekrecyja logistyczna będzie wymagała
+[210.74s -> 216.74s] skalowania i normalizacji, normalizacji cek. Mówiliśmy sobie,
+[216.74s -> 220.74s] że niektóre z tych modeli nie będą tego wymagało, żebyśmy
+[220.74s -> 225.74s] skalowali cek, więc zawsze tym bike line preprecesingofy powinien być
+[225.74s -> 230.74s] to stosowany też do modelu, znaczy tutaj skalujemy dane to
+[230.74s -> 235.74s] i damy to da modelu, który nie wymaga skalowania też się nic nie
+[235.74s -> 241.74s] staje, ale tutaj zawsze w po tym, jak sobie dobierzemy model,
+[241.74s -> 244.74s] zawsze możemy stworzyć jakieś bike line, które będzie
+[244.74s -> 250.74s] dywykowane dla tego modelu, no i oczywiście mówiliśmy sobie o tym,
+[250.74s -> 254.74s] że te wszystkie elementy, te wszystkie elementy zawsze powinny być,
+[254.74s -> 260.74s] powinny być tworzone, tworzone w po podziale,
+[260.74s -> 266.74s] po podziale na test z brytreningowy i testowych, tak?
+[266.74s -> 269.74s] Czyli na przykład, jeżeli tworzymy imputację,
+[269.74s -> 274.74s] osobno imputujemy dla z brytreningowego, osobno imputujemy dla z brytreningowego.
+[274.74s -> 280.74s] Jeżeli tworzymy skalowanie, osobno skalujemy dla z brytreningowego
+[280.74s -> 283.74s] i dla osobno dla z brytreningowego, tak? Na przykład mówimy,
+[283.74s -> 289.74s] tam by jest fit transform i na przykład później tylko transform,
+[289.74s -> 292.74s] tak? Czyli wykorzystujemy odpowiedni sposób,
+[292.74s -> 295.74s] odpowiedni sposób z brytrenstowej i trainingowy,
+[295.74s -> 299.74s] cały proces ingrybimy w ten sposób, żeby informacje
