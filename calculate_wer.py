@@ -37,6 +37,7 @@ def main():
         print("BŁĄD: Nie znaleziono Złotego Standardu!")
         return
 
+
     for nazwa, sciezka in HYPOTHESES_FILES.items():
         hypothesis = load_text(sciezka)
         if not hypothesis:
