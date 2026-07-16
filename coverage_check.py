@@ -11,7 +11,7 @@ import os
 
 GROUND_TRUTH_FILE = "ground_truth/ground_truth_Uczenie maszynowe i biblioteki programistyczne AI-20260314_103649-Nagrywanie spotkania.txt"
 HYPOTHESIS_FILE = "output_transcriptions_txt/faster_whisper_vad.txt"
-PROMPT_FILE = "rag_output/initial_prompt_lab2.txt"
+PROMPT_FILE = "extracted_dictionaries/extracted_dictionary_Lab2 - Wstęp do klasyfikacji.txt"
 
 normalize_transform = jiwer.Compose([
     jiwer.ToLowerCase(),
