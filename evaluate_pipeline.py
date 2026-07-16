@@ -16,6 +16,7 @@ EXPERIMENTS = {
     "whisper_base_baseline":  "output_transcriptions_txt/baseline_whisper_base.txt",
     "whisper_base_streaming": "output_transcriptions_txt/streaming_whisper_base_5s.txt",
     "faster_whisper_vad":     "output_transcriptions_txt/faster_whisper_vad.txt",
+    "faster_whisper_vad_prompt": "output_transcriptions_txt/faster_whisper_vad_prompt.txt",
 }
 
 ALIGN_DIR = "alignments"

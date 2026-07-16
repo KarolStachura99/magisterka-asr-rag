@@ -5,7 +5,6 @@ from keybert import KeyBERT
 from pypdf import PdfReader
 from pptx import Presentation
 
-# Inicjalizacja polskiego modelu gramatycznego spaCy
 print("Ładowanie modelu językowego spaCy...")
 nlp = spacy.load("pl_core_news_md")
 
@@ -24,11 +23,10 @@ def extract_text_from_pptx(pptx_path: str) -> str:
 
 def preprocess_text_with_spacy(text: str) -> str:
     """
-    Zaawansowana filtracja lingwistyczna (POS Tagging + Lemmatization).
+    Filtracja lingwistyczna (POS Tagging + Lemmatization).
     Przepuszcza tylko rzeczowniki (NOUN), nazwy własne (PROPN), przymiotniki (ADJ) 
-    oraz słowa obce/nieznane (X), które często są nazwami bibliotek IT.
+    oras słowa obce/nieznane (X), które często są nazwami bibliotek IT.
     """
-    # Zwiększenie limitu długości tekstu dla dużych prezentacji
     nlp.max_length = 2000000 
     doc = nlp(text)
     
@@ -36,13 +34,14 @@ def preprocess_text_with_spacy(text: str) -> str:
     cleaned_tokens = []
     
     for token in doc:
-        # Odrzucamy słowa krótsze niż 3 litery, stop-wordsy i znaki interpunkcyjne
         if token.is_stop or token.is_punct or len(token.text) < 3:
             continue
             
-        # Przepuszczamy tylko dozwolone części mowy i używamy formy bazowej (lemma_)
         if token.pos_ in allowed_pos:
-            cleaned_tokens.append(token.lemma_.lower())
+            if token.pos_ in {'PROPN', 'X'} or token.text.isupper():
+                cleaned_tokens.append(token.text)
+            else:
+                cleaned_tokens.append(token.lemma_.lower())
             
     return " ".join(cleaned_tokens)
 
@@ -62,8 +61,6 @@ def generate_keywords_keybert(file_path: str) -> str:
     print("Trwa ekstrakcja wektorowa (KeyBERT)...")
     kw_model = KeyBERT(model='paraphrase-multilingual-MiniLM-L12-v2')
     
-    # Teraz możemy bezpiecznie użyć bigramów i średniego diversity, 
-    # ponieważ tekst jest wolny od gramatycznych "śmieci"
     keywords_with_scores = kw_model.extract_keywords(
         doc_text, 
         keyphrase_ngram_range=(1, 1), 
@@ -73,13 +70,20 @@ def generate_keywords_keybert(file_path: str) -> str:
         diversity=0.5                 
     )
     
-    keywords_list = [kw[0] for kw in keywords_with_scores]
+    keywords_list = [kw[0].replace("_", " ") for kw in keywords_with_scores]
     return ", ".join(keywords_list)
 
 if __name__ == "__main__":
     sciezka_do_pliku = "C:/Users/Karol Stachura/Desktop/Projekt_Magisterski/pdf_files/Lab2 - Wstęp do klasyfikacji.pdf"
     
-    print("Uruchamiam Zaawansowany Potok RAG (spaCy + KeyBERT)...")
+    nazwa_pliku = os.path.splitext(os.path.basename(sciezka_do_pliku))[0]
+    
+    output_dir = "extracted_dictionaries"
+    os.makedirs(output_dir, exist_ok=True)
+    
+    plik_wyjsciowy = os.path.join(output_dir, f"extracted_dictionary_{nazwa_pliku}.txt")
+    
+    print(f"Uruchamiam Zaawansowany Potok RAG dla pliku: {nazwa_pliku}...")
     start_time = time.time()
     
     try:
@@ -87,6 +91,11 @@ if __name__ == "__main__":
         end_time = time.time()
         
         print(f"\nWygenerowany initial_prompt dla Whispera:\n{wynik}")
-        print(f"\n--- CZAS OPERACJI: {end_time - start_time:.2f} sekund ---")
+        print(f"\n--- CZAS OPERACJI EKSTRAKCJI: {end_time - start_time:.2f} sekund ---")
+        
+        with open(plik_wyjsciowy, "w", encoding="utf-8") as f:
+            f.write(wynik)
+        print(f"\n[SUKCES] Słownik został automatycznie zapisany do: {plik_wyjsciowy}")
+        
     except Exception as e:
         print(f"\nBŁĄD PROCESU: {e}")

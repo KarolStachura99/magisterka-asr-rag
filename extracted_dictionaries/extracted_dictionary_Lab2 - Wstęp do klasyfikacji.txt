@@ -1,0 +1,1 @@
+laboratoria, klasyfikacja, próbka, programistyczne, learning rate, proces, zaimplementować, weryfikacja, klasa, model, efektywność, algorytm, biblioteka, diagnostyka, najprostszy, regularyzacja, binarny, kontekst, czyszczenie, dobór, kernel, niezbalansowany, grid, colsample bytree, vector, hiperparametr, procent, lightgbm, bayesowska, n neighbors
