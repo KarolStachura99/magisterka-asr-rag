@@ -2,6 +2,7 @@ magisterka_env/
 venv/
 env/
 magisterka_env_311/
+app/certs/
 
 *.mp3
 *.wav
@@ -13,5 +14,6 @@ magisterka_env_311/
 
 __pycache__/
 *.pyc
-.DS_StoreM a g i s t e r k a . z i p  
+.DS_StoreM a g i s t e r k a . z i p 
+ 
  

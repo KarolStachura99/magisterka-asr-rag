@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mikrofon — transkrypcja na żywo</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem;
+         background: #14161a; color: #e8e6e0; }
+  h1 { font-size: 1.1rem; font-weight: 500; }
+  button { font-size: 1.2rem; padding: 0.9rem 1.6rem; border: 0; border-radius: 10px;
+           background: #1d9e75; color: #fff; width: 100%; }
+  button.stop { background: #a32d2d; }
+  #status { margin: 0.8rem 0; color: #9aa0a6; font-size: 0.9rem; }
+  #level { height: 6px; background: #2c2f34; border-radius: 3px; overflow: hidden; }
+  #level > div { height: 100%; width: 0%; background: #1d9e75; transition: width 80ms; }
+</style>
+</head>
+<body>
+<h1>Mikrofon → serwer transkrypcji</h1>
+<button id="btn">Start nagrywania</button>
+<p id="status">Gotowy. Naciśnij Start i zezwól na dostęp do mikrofonu.</p>
+<div id="level"><div id="levelbar"></div></div>
+
+<script>
+const TARGET_RATE = 16000;
+let ctx = null, ws = null, stream = null, running = false;
+
+// AudioWorklet inline (przez Blob), żeby całość była jednym plikiem.
+// Worklet zbiera próbki float32 w natywnym sample rate i odsyła je do wątku
+// głównego, który przepróbkowuje liniowo do 16 kHz i pakuje w int16.
+const workletCode = `
+class PCMTap extends AudioWorkletProcessor {
+  process(inputs) {
+    const ch = inputs[0][0];
+    if (ch) this.port.postMessage(ch.slice(0));
+    return true;
+  }
+}
+registerProcessor('pcm-tap', PCMTap);
+`;
+
+function resampleTo16k(float32, srcRate) {
+  const ratio = srcRate / TARGET_RATE;
+  const outLen = Math.floor(float32.length / ratio);
+  const out = new Int16Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const pos = i * ratio;
+    const i0 = Math.floor(pos), i1 = Math.min(i0 + 1, float32.length - 1);
+    const frac = pos - i0;
+    let s = float32[i0] * (1 - frac) + float32[i1] * frac;   // interpolacja liniowa
+    s = Math.max(-1, Math.min(1, s));
+    out[i] = s < 0 ? s * 32768 : s * 32767;
+  }
+  return out;
+}
+
+async function start() {
+  status('Łączę z serwerem...');
+  ws = new WebSocket(`wss://${location.host}/ws/audio`);
+  ws.binaryType = 'arraybuffer';
+  await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
+
+  status('Proszę o dostęp do mikrofonu...');
+  stream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 }
+  });
+
+  ctx = new AudioContext();                 // natywny rate, zwykle 48000
+  const blobUrl = URL.createObjectURL(new Blob([workletCode], {type: 'text/javascript'}));
+  await ctx.audioWorklet.addModule(blobUrl);
+  const src = ctx.createMediaStreamSource(stream);
+  const tap = new AudioWorkletNode(ctx, 'pcm-tap');
+
+  tap.port.onmessage = (e) => {
+    const f32 = e.data;
+    // prosty wskaźnik poziomu
+    let peak = 0;
+    for (let i = 0; i < f32.length; i += 8) peak = Math.max(peak, Math.abs(f32[i]));
+    document.getElementById('levelbar').style.width = Math.min(100, peak * 140) + '%';
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(resampleTo16k(f32, ctx.sampleRate).buffer);
+    }
+  };
+  src.connect(tap);
+
+  running = true;
+  document.getElementById('btn').textContent = 'Stop';
+  document.getElementById('btn').classList.add('stop');
+  status(`Nagrywam (${ctx.sampleRate} Hz → 16000 Hz). Mów normalnie.`);
+}
+
+function stop() {
+  running = false;
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  if (ctx) ctx.close();
+  if (ws) ws.close();
+  document.getElementById('btn').textContent = 'Start nagrywania';
+  document.getElementById('btn').classList.remove('stop');
+  document.getElementById('levelbar').style.width = '0%';
+  status('Zatrzymano.');
+}
+
+function status(t) { document.getElementById('status').textContent = t; }
+
+document.getElementById('btn').onclick = () =>
+  (running ? stop() : start().catch(e => status('Błąd: ' + e.message)));
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transkrypcja na żywo</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 1.5rem;
+         background: #14161a; color: #e8e6e0; max-width: 900px; margin-inline: auto; }
+  h1 { font-size: 1.2rem; font-weight: 500; }
+  #conn { font-size: 0.85rem; color: #9aa0a6; margin-bottom: 1rem; }
+  #stats { display: flex; gap: 1.5rem; font-size: 0.85rem; color: #9aa0a6;
+           border: 1px solid #2c2f34; border-radius: 8px; padding: 0.7rem 1rem;
+           margin-bottom: 1rem; flex-wrap: wrap; }
+  #stats b { color: #e8e6e0; font-weight: 500; }
+  .seg { border-left: 3px solid #1d9e75; padding: 0.5rem 0.9rem; margin: 0.6rem 0;
+         background: #1b1e23; border-radius: 0 8px 8px 0; }
+  .seg .meta { font-size: 0.75rem; color: #9aa0a6; margin-bottom: 0.2rem; }
+  .seg.corrected { border-left-color: #d85a30; }
+  .seg .text { font-size: 1.05rem; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>Transkrypcja na żywo — podgląd</h1>
+<div id="conn">Łączenie...</div>
+<div id="stats">
+  <span>Segmenty: <b id="s-count">0</b></span>
+  <span>Ostatnia latencja: <b id="s-lat">–</b></span>
+  <span>RTF narastająco: <b id="s-rtf">–</b></span>
+  <span>Kolejka: <b id="s-q">0</b></span>
+</div>
+<div id="log"></div>
+
+<script>
+function connect() {
+  const ws = new WebSocket(`wss://${location.host}/ws/view`);
+  ws.onopen = () => conn('Połączono z serwerem.');
+  ws.onclose = () => { conn('Rozłączono — ponawiam za 2 s...'); setTimeout(connect, 2000); };
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'status') { conn(msg.text); return; }
+    if (msg.type === 'segment') addSegment(msg);
+  };
+}
+
+function addSegment(m) {
+  const t = new Date().toLocaleTimeString('pl-PL');
+  const div = document.createElement('div');
+  div.className = 'seg';
+  div.id = 'seg-' + m.id;
+  div.innerHTML = `
+    <div class="meta">#${m.id} · ${t} · audio ${m.audio_s}s ·
+      przetwarzanie ${m.proc_s}s · latencja ${m.latency_s}s</div>
+    <div class="text"></div>`;
+  div.querySelector('.text').textContent = m.text;
+  document.getElementById('log').prepend(div);
+
+  document.getElementById('s-count').textContent = m.id;
+  document.getElementById('s-lat').textContent = m.latency_s + ' s';
+  document.getElementById('s-rtf').textContent = m.rtf_total;
+  document.getElementById('s-q').textContent = m.queue;
+}
+
+function conn(t) { document.getElementById('conn').textContent = t; }
+connect();
+</script>
+</body>
+</html>
