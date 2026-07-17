@@ -1,0 +1,5 @@
+eksperyment;czas_s;rtf;ram_model_mb;ram_peak_mb
+whisper_base_baseline;53.77;0.1794;422;640
+whisper_base_streaming;328.62;1.0954;422;633
+faster_whisper_vad;50.97;0.1699;140;388
+faster_whisper_vad_prompt;60.51;0.2017;129;393
