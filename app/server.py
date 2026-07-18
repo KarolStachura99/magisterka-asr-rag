@@ -9,14 +9,16 @@ Serwer nasłuchuje na https://0.0.0.0:8443 (certyfikat: app/certs/, patrz README
 
 import asyncio
 import json
+import subprocess
+import sys
 import time
 import urllib.request
 from pathlib import Path
 
 import numpy as np
 import webrtcvad
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from faster_whisper import WhisperModel
 
@@ -55,10 +57,12 @@ DICTIONARY_PATH = (Path(__file__).parent.parent / "extracted_dictionaries"
 # UWAGA: wklej tu swój sprawdzony prompt z exp6_slm_correction.py (wzorzec
 # konserwatywny). Poniższy tekst to placeholder w tym samym duchu.
 SLM_SYSTEM_PROMPT = (
-    "Jesteś korektorem transkrypcji z polskiego wykładu. Otrzymasz słownik "
-    "terminów oraz fragment transkrypcji. Popraw WYŁĄCZNIE błędnie rozpoznane "
-    "terminy specjalistyczne na te ze słownika. Nie zmieniaj stylu, szyku ani "
-    "pozostałych słów. Nie dodawaj komentarzy. Zwróć tylko poprawiony tekst."
+    "Jesteś korektorem transkrypcji wykładu o uczeniu maszynowym. "
+    "Otrzymujesz fragment transkrypcji z błędami fonetycznymi oraz słownik "
+    "poprawnej terminologii. Twoje zadanie: popraw WYŁĄCZNIE zniekształcone "
+    "terminy specjalistyczne na ich poprawne formy. NIE parafrazuj, NIE zmieniaj "
+    "szyku zdań, NIE dodawaj ani NIE usuwaj słów poza korektą terminów, NIE "
+    "komentuj. Zakaz znaczników Markdown. Zwróć tylko poprawiony tekst."
 )
 
 app = FastAPI()
@@ -96,12 +100,13 @@ def log_metrics_csv(seg_id, audio_s, proc_s, latency_s, rtf_total, queue, text_l
 
 @app.on_event("startup")
 async def startup() -> None:
-    global model, dictionary_text
+    global model, dictionary_text, context_source
     print(f"[startup] Ładuję faster-whisper '{MODEL_NAME}' (cpu, int8)...")
     model = WhisperModel(MODEL_NAME, device="cpu", compute_type="int8")
     print("[startup] Model gotowy.")
     if DICTIONARY_PATH.exists():
         dictionary_text = DICTIONARY_PATH.read_text(encoding="utf-8").strip()
+        context_source = DICTIONARY_PATH.name + " (domyślny)"
         print(f"[startup] Słownik: {DICTIONARY_PATH.name} "
               f"({len(dictionary_text)} znaków).")
     else:
@@ -109,8 +114,6 @@ async def startup() -> None:
               f"korekta SLM będzie działać bez kontekstu.")
     asyncio.create_task(transcription_worker())
     asyncio.create_task(slm_worker())
-
-
 # ----------------------------------------------------------------------------
 # Broadcast do wszystkich podglądów
 # ----------------------------------------------------------------------------
@@ -352,6 +355,66 @@ async def ws_view(ws: WebSocket) -> None:
             await ws.receive_text()   # nic nie oczekujemy, trzymamy połączenie
     except WebSocketDisconnect:
         viewers.discard(ws)
+
+
+# ----------------------------------------------------------------------------
+# Etap 4: ładowanie kontekstu sesji (PDF -> rag_context6.py, albo tekst wprost)
+# ----------------------------------------------------------------------------
+PROJECT_ROOT = Path(__file__).parent.parent
+UPLOADS_DIR = Path(__file__).parent / "uploads"
+context_source = "brak (domyślny słownik)"
+
+
+def _run_rag_pipeline(saved_path: Path) -> str:
+    """Uruchamia rag_context6.py w venv serwera i zwraca treść słownika."""
+    result = subprocess.run(
+        [sys.executable, "rag_context6.py", "--file", str(saved_path)],
+        cwd=PROJECT_ROOT, capture_output=True, text=True, timeout=600,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip()[-500:] or "rag_context6 padł")
+    name = saved_path.stem
+    out = PROJECT_ROOT / "extracted_dictionaries" / f"extracted_dictionary_v6_{name}.txt"
+    return out.read_text(encoding="utf-8").strip()
+
+
+@app.post("/api/context/pdf")
+async def context_pdf(file: UploadFile = File(...)):
+    global dictionary_text, context_source
+    UPLOADS_DIR.mkdir(exist_ok=True)
+    saved = UPLOADS_DIR / Path(file.filename).name
+    saved.write_bytes(await file.read())
+    await broadcast({"type": "status",
+                     "text": f"Generuję słownik z {saved.name} (to potrwa)..."})
+    try:
+        dictionary_text = await asyncio.to_thread(_run_rag_pipeline, saved)
+    except Exception as e:
+        await broadcast({"type": "status", "text": f"Błąd ekstrakcji: {e}"})
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    context_source = saved.name
+    n = len(dictionary_text.split(","))
+    await broadcast({"type": "status",
+                     "text": f"Kontekst: {saved.name} ({n} pozycji słownika)"})
+    return {"ok": True, "entries": n, "dictionary": dictionary_text}
+
+
+@app.post("/api/context/text")
+async def context_text(payload: dict):
+    global dictionary_text, context_source
+    text = (payload.get("text") or "").strip()
+    if not text:
+        return JSONResponse({"ok": False, "error": "pusty tekst"}, status_code=400)
+    dictionary_text = text
+    context_source = "opis użytkownika"
+    await broadcast({"type": "status",
+                     "text": f"Kontekst: opis użytkownika ({len(text)} znaków)"})
+    return {"ok": True}
+
+
+@app.get("/api/context")
+async def context_status():
+    return {"source": context_source, "length": len(dictionary_text),
+            "slm_enabled": slm_enabled}
 
 
 # ----------------------------------------------------------------------------

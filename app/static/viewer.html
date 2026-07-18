@@ -23,6 +23,21 @@
 <body>
 <h1>Transkrypcja na żywo — podgląd</h1>
 <div id="conn">Łączenie...</div>
+<div id="ctx" style="border:1px solid #2c2f34;border-radius:8px;padding:0.7rem 1rem;
+     margin-bottom:1rem;font-size:0.85rem;">
+  <div style="margin-bottom:0.5rem;color:#9aa0a6">Kontekst sesji:
+    <b id="ctx-src" style="color:#e8e6e0;font-weight:500">–</b></div>
+  <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center">
+    <input type="file" id="ctx-file" accept=".pdf,.pptx" style="color:#9aa0a6">
+    <button onclick="sendPdf()" style="padding:0.4rem 0.9rem;border:0;
+      border-radius:6px;background:#1d9e75;color:#fff;cursor:pointer">Generuj z pliku</button>
+    <input type="text" id="ctx-text" placeholder="...albo wpisz opis sytuacji"
+      style="flex:1;min-width:200px;padding:0.4rem 0.6rem;border-radius:6px;
+      border:1px solid #2c2f34;background:#1b1e23;color:#e8e6e0">
+    <button onclick="sendText()" style="padding:0.4rem 0.9rem;border:0;
+      border-radius:6px;background:#534ab7;color:#fff;cursor:pointer">Ustaw tekst</button>
+  </div>
+</div>
 <div id="stats">
   <span>Segmenty: <b id="s-count">0</b></span>
   <span>Ostatnia latencja: <b id="s-lat">–</b></span>
@@ -72,6 +87,37 @@ function addSegment(m) {
 }
 
 function conn(t) { document.getElementById('conn').textContent = t; }
+
+async function refreshCtx() {
+  const r = await fetch('/api/context').then(x => x.json()).catch(() => null);
+  if (r) document.getElementById('ctx-src').textContent =
+    `${r.source} · ${r.length} zn. · SLM ${r.slm_enabled ? 'aktywny' : 'WYŁĄCZONY'}`;
+}
+
+async function sendPdf() {
+  const f = document.getElementById('ctx-file').files[0];
+  if (!f) { conn('Najpierw wybierz plik PDF/PPTX.'); return; }
+  conn(`Wysyłam ${f.name} i generuję słownik — to może potrwać ponad minutę...`);
+  const fd = new FormData();
+  fd.append('file', f);
+  const r = await fetch('/api/context/pdf', {method: 'POST', body: fd})
+    .then(x => x.json()).catch(e => ({ok: false, error: e.message}));
+  conn(r.ok ? `Słownik gotowy (${r.entries} pozycji).` : `Błąd: ${r.error}`);
+  refreshCtx();
+}
+
+async function sendText() {
+  const t = document.getElementById('ctx-text').value.trim();
+  if (!t) { conn('Wpisz najpierw opis.'); return; }
+  const r = await fetch('/api/context/text', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({text: t})
+  }).then(x => x.json()).catch(e => ({ok: false, error: e.message}));
+  conn(r.ok ? 'Kontekst tekstowy ustawiony.' : `Błąd: ${r.error}`);
+  refreshCtx();
+}
+
+refreshCtx();
 connect();
 </script>
 </body>
