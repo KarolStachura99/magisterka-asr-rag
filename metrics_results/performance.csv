@@ -3,3 +3,7 @@ whisper_base_baseline;53.77;0.1794;422;640
 whisper_base_streaming;328.62;1.0954;422;633
 faster_whisper_vad;50.97;0.1699;140;388
 faster_whisper_vad_prompt;60.51;0.2017;129;393
+faster_whisper_vad_prompt6;50.45;0.1682;129;402
+faster_whisper_vad_hotwords6;58.01;0.1934;130;398
+faster_whisper_vad_slm_qwen;130.54;0.4352;140;388
+faster_whisper_vad_slm_llama;201.77;0.6726;140;388

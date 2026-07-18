@@ -59,6 +59,18 @@ metrics = {
     "segments": 0,
 }
 
+METRICS_CSV = Path(__file__).parent / "metrics_live.csv"
+SESSION_START = time.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def log_metrics_csv(seg_id, audio_s, proc_s, latency_s, rtf_total, queue, text_len):
+    new_file = not METRICS_CSV.exists()
+    with METRICS_CSV.open("a", encoding="utf-8") as f:
+        if new_file:
+            f.write("session,seg_id,audio_s,proc_s,latency_s,rtf_total,queue,text_len\n")
+        f.write(f"{SESSION_START},{seg_id},{audio_s:.2f},{proc_s:.2f},"
+                f"{latency_s:.2f},{rtf_total:.3f},{queue},{text_len}\n")
+
 
 @app.on_event("startup")
 async def startup() -> None:
@@ -86,9 +98,32 @@ async def broadcast(payload: dict) -> None:
 # ----------------------------------------------------------------------------
 # Worker: sekwencyjna transkrypcja segmentów z kolejki (CPU = 1 naraz)
 # ----------------------------------------------------------------------------
+MAX_WORD_REPEATS = 3         # dłuższe serie tego samego słowa = pętla halucynacji
+COMPRESSION_RATIO_MAX = 2.4  # próg z literatury Whispera; wyżej = tekst-pętla
+
+
+def _collapse_repeats(text: str) -> str:
+    """Skraca serie identycznych słów ('razy razy razy...' -> 'razy razy razy')."""
+    words = text.split()
+    out, run = [], 0
+    for i, w in enumerate(words):
+        run = run + 1 if i > 0 and w.lower().strip(".,!?") == words[i - 1].lower().strip(".,!?") else 1
+        if run <= MAX_WORD_REPEATS:
+            out.append(w)
+    return " ".join(out)
+
+
 def _transcribe_sync(audio: np.ndarray) -> str:
     segments, _info = model.transcribe(audio, **WHISPER_KWARGS)
-    return " ".join(s.text.strip() for s in segments).strip()
+    parts = []
+    for s in segments:
+        # Halucynacje mają charakterystycznie wysoką kompresowalność (powtórki).
+        if s.compression_ratio is not None and s.compression_ratio > COMPRESSION_RATIO_MAX:
+            print(f"  [filtr] odrzucam segment (compression_ratio="
+                  f"{s.compression_ratio:.1f}): {s.text[:60]!r}...")
+            continue
+        parts.append(s.text.strip())
+    return _collapse_repeats(" ".join(parts).strip())
 
 
 async def transcription_worker() -> None:
@@ -108,6 +143,13 @@ async def transcription_worker() -> None:
 
         print(f"[seg {seg_id}] {audio_s:.1f}s audio, {proc_s:.1f}s proc, "
               f"latencja {latency_s:.1f}s, RTF narast. {rtf_total:.2f} | {text!r}")
+
+        # Metryki do CSV — surowe dane do rozdziału o wdrożeniu na żywo.
+        log_metrics_csv(seg_id, audio_s, proc_s, latency_s, rtf_total,
+                        segment_queue.qsize(), len(text))
+
+        if not text:
+            continue   # cisza/trzask: liczymy w metrykach, nie wyświetlamy
 
         await broadcast({
             "type": "segment",

@@ -21,6 +21,26 @@
 <button id="btn">Start nagrywania</button>
 <p id="status">Gotowy. Naciśnij Start i zezwól na dostęp do mikrofonu.</p>
 <div id="level"><div id="levelbar"></div></div>
+<div id="log" style="margin-top:1rem"></div>
+
+<script>
+// Podgląd transkrypcji na telefonie: osobne, stałe połączenie do /ws/view.
+(function viewLoop() {
+  const v = new WebSocket(`wss://${location.host}/ws/view`);
+  v.onclose = () => setTimeout(viewLoop, 2000);
+  v.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type !== 'segment') return;
+    const d = document.createElement('div');
+    d.style.cssText = 'border-left:3px solid #1d9e75;padding:.4rem .7rem;' +
+      'margin:.5rem 0;background:#1b1e23;border-radius:0 8px 8px 0;';
+    d.innerHTML = `<div style="font-size:.7rem;color:#9aa0a6">#${m.id} · ` +
+      `latencja ${m.latency_s}s</div><div></div>`;
+    d.lastElementChild.textContent = m.text;
+    document.getElementById('log').prepend(d);
+  };
+})();
+</script>
 
 <script>
 const TARGET_RATE = 16000;

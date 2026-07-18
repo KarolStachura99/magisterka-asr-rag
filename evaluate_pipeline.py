@@ -19,7 +19,6 @@ EXPERIMENTS = {
     "faster_whisper_vad_prompt": "output_transcriptions_txt/faster_whisper_vad_prompt.txt",
     "faster_whisper_vad_prompt6":   "output_transcriptions_txt/faster_whisper_vad_prompt6.txt",
     "faster_whisper_vad_hotwords6": "output_transcriptions_txt/faster_whisper_vad_hotwords6.txt",
-    "faster_whisper_vad_slm": "output_transcriptions_txt/faster_whisper_vad_slm.txt",
     "faster_whisper_vad_slm_qwen":  "output_transcriptions_txt/faster_whisper_vad_slm.txt",
     "faster_whisper_vad_slm_llama": "output_transcriptions_txt/faster_whisper_vad_slm_llama.txt",
 }
