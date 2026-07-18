@@ -1,6 +1,6 @@
 # System transkrypcji ASR ze wsparciem kontekstowym RAG + korekta SLM
 
-Praca magisterska: lokalny, w pełni lokalny system transkrypcji polskojęzycznych
+Praca magisterska: w pełni lokalny system transkrypcji polskojęzycznych
 wykładów akademickich nasyconych żargonem technicznym, działający na konsumenckim
 sprzęcie (i5-6300HQ, 12 GB RAM, GTX 960M 4 GB).
 
