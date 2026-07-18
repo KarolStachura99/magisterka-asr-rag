@@ -217,6 +217,26 @@ def _correct_sync(text: str) -> str:
         return json.loads(resp.read())["response"].strip()
 
 
+def _correction_is_sane(raw: str, corrected: str) -> bool:
+    """Konserwatywna korekta terminologii nie może drastycznie zmienić tekstu.
+
+    Odrzucamy poprawkę, gdy: (a) długość odbiega o >40% od oryginału,
+    (b) model wykleił fragment promptu/słownika, (c) pojawiły się nowe linie
+    (transkrypcja segmentu to jeden ciąg mowy).
+    """
+    if not corrected:
+        return False
+    ratio = len(corrected) / max(len(raw), 1)
+    if ratio < 0.6 or ratio > 1.4:
+        return False
+    lowered = corrected.lower()
+    if "słownik" in lowered or "transkrypc" in lowered and "transkrypc" not in raw.lower():
+        return False
+    if "\n" in corrected:
+        return False
+    return True
+
+
 async def slm_worker() -> None:
     global slm_enabled
     while True:
@@ -230,6 +250,17 @@ async def slm_worker() -> None:
             slm_enabled = False
             continue
         slm_s = time.perf_counter() - t0
+
+        if not _correction_is_sane(text, corrected):
+            print(f"[slm seg {seg_id}] {slm_s:.1f}s, ODRZUCONO korektę "
+                  f"(sanity check) | {corrected[:80]!r}")
+            await broadcast({
+                "type": "correction", "id": seg_id, "text": text,
+                "slm_s": round(slm_s, 1), "changed": False,
+                "rejected": True, "slm_queue": slm_queue.qsize(),
+            })
+            continue
+
         changed = corrected != text
         print(f"[slm seg {seg_id}] {slm_s:.1f}s, "
               f"{'ZMIENIONO' if changed else 'bez zmian'} | {corrected!r}")
