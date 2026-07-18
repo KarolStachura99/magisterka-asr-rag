@@ -30,8 +30,17 @@
   v.onclose = () => setTimeout(viewLoop, 2000);
   v.onmessage = (e) => {
     const m = JSON.parse(e.data);
+    if (m.type === 'correction') {
+      const old = document.getElementById('pseg-' + m.id);
+      if (old) {
+        old.style.borderLeftColor = '#d85a30';
+        old.lastElementChild.textContent = m.text;
+      }
+      return;
+    }
     if (m.type !== 'segment') return;
     const d = document.createElement('div');
+    d.id = 'pseg-' + m.id;
     d.style.cssText = 'border-left:3px solid #1d9e75;padding:.4rem .7rem;' +
       'margin:.5rem 0;background:#1b1e23;border-radius:0 8px 8px 0;';
     d.innerHTML = `<div style="font-size:.7rem;color:#9aa0a6">#${m.id} · ` +

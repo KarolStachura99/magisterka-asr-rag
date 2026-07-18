@@ -40,7 +40,17 @@ function connect() {
     const msg = JSON.parse(e.data);
     if (msg.type === 'status') { conn(msg.text); return; }
     if (msg.type === 'segment') addSegment(msg);
+    if (msg.type === 'correction') applyCorrection(msg);
   };
+}
+
+function applyCorrection(m) {
+  const div = document.getElementById('seg-' + m.id);
+  if (!div) return;
+  div.classList.add('corrected');
+  div.querySelector('.text').textContent = m.text;
+  div.querySelector('.meta').textContent +=
+    ` · SLM ${m.slm_s}s${m.changed ? ' (zmieniono)' : ' (bez zmian)'}`;
 }
 
 function addSegment(m) {

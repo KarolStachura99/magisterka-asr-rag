@@ -10,6 +10,7 @@ Serwer nasłuchuje na https://0.0.0.0:8443 (certyfikat: app/certs/, patrz README
 import asyncio
 import json
 import time
+import urllib.request
 from pathlib import Path
 
 import numpy as np
@@ -42,6 +43,24 @@ WHISPER_KWARGS = dict(
     temperature=0.0,         # deterministycznie, bez fallbacków
 )
 
+# ----------------------------------------------------------------------------
+# Warstwa korekcyjna SLM (etap 3) — ustawienia zgodne z exp6_slm_correction.py
+# ----------------------------------------------------------------------------
+OLLAMA_URL = "http://localhost:11434/api/generate"
+SLM_MODEL = "llama3.2:latest"
+SLM_OPTIONS = {"temperature": 0.1, "num_ctx": 4096, "num_predict": 256}
+DICTIONARY_PATH = (Path(__file__).parent.parent / "extracted_dictionaries"
+                   / "extracted_dictionary_v6_Lab2 - Wstęp do klasyfikacji.txt")
+
+# UWAGA: wklej tu swój sprawdzony prompt z exp6_slm_correction.py (wzorzec
+# konserwatywny). Poniższy tekst to placeholder w tym samym duchu.
+SLM_SYSTEM_PROMPT = (
+    "Jesteś korektorem transkrypcji z polskiego wykładu. Otrzymasz słownik "
+    "terminów oraz fragment transkrypcji. Popraw WYŁĄCZNIE błędnie rozpoznane "
+    "terminy specjalistyczne na te ze słownika. Nie zmieniaj stylu, szyku ani "
+    "pozostałych słów. Nie dodawaj komentarzy. Zwróć tylko poprawiony tekst."
+)
+
 app = FastAPI()
 
 # ----------------------------------------------------------------------------
@@ -50,6 +69,9 @@ app = FastAPI()
 model: WhisperModel | None = None
 viewers: set[WebSocket] = set()          # klienci /ws/view (komputer + telefon)
 segment_queue: asyncio.Queue = asyncio.Queue()
+slm_queue: asyncio.Queue = asyncio.Queue()
+slm_enabled = True                       # wyłącza się samo, gdy Ollama nie odpowiada
+dictionary_text = ""
 seg_counter = 0
 
 # Metryki narastające (do rozdziału "wdrożenie na żywo")
@@ -74,11 +96,19 @@ def log_metrics_csv(seg_id, audio_s, proc_s, latency_s, rtf_total, queue, text_l
 
 @app.on_event("startup")
 async def startup() -> None:
-    global model
+    global model, dictionary_text
     print(f"[startup] Ładuję faster-whisper '{MODEL_NAME}' (cpu, int8)...")
     model = WhisperModel(MODEL_NAME, device="cpu", compute_type="int8")
     print("[startup] Model gotowy.")
+    if DICTIONARY_PATH.exists():
+        dictionary_text = DICTIONARY_PATH.read_text(encoding="utf-8").strip()
+        print(f"[startup] Słownik: {DICTIONARY_PATH.name} "
+              f"({len(dictionary_text)} znaków).")
+    else:
+        print(f"[startup] UWAGA: brak słownika pod {DICTIONARY_PATH} — "
+              f"korekta SLM będzie działać bez kontekstu.")
     asyncio.create_task(transcription_worker())
+    asyncio.create_task(slm_worker())
 
 
 # ----------------------------------------------------------------------------
@@ -161,6 +191,55 @@ async def transcription_worker() -> None:
             "rtf_total": round(rtf_total, 3),
             "queue": segment_queue.qsize(),
             "corrected": False,   # pole pod etap 3 (SLM)
+        })
+
+        if slm_enabled:
+            slm_queue.put_nowait((seg_id, text))
+
+
+# ----------------------------------------------------------------------------
+# Worker SLM: asynchroniczna korekta terminologii (nigdy nie blokuje ASR)
+# ----------------------------------------------------------------------------
+def _correct_sync(text: str) -> str:
+    prompt = (f"{SLM_SYSTEM_PROMPT}\n\nSŁOWNIK TERMINÓW:\n{dictionary_text}\n\n"
+              f"TRANSKRYPCJA DO KOREKTY:\n{text}\n\nPOPRAWIONA TRANSKRYPCJA:")
+    req = urllib.request.Request(
+        OLLAMA_URL,
+        data=json.dumps({
+            "model": SLM_MODEL,
+            "prompt": prompt,
+            "options": SLM_OPTIONS,
+            "stream": False,
+        }).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        return json.loads(resp.read())["response"].strip()
+
+
+async def slm_worker() -> None:
+    global slm_enabled
+    while True:
+        seg_id, text = await slm_queue.get()
+        t0 = time.perf_counter()
+        try:
+            corrected = await asyncio.to_thread(_correct_sync, text)
+        except Exception as e:
+            print(f"[slm] Ollama niedostępna ({e}) — wyłączam korektę "
+                  f"do końca sesji.")
+            slm_enabled = False
+            continue
+        slm_s = time.perf_counter() - t0
+        changed = corrected != text
+        print(f"[slm seg {seg_id}] {slm_s:.1f}s, "
+              f"{'ZMIENIONO' if changed else 'bez zmian'} | {corrected!r}")
+        await broadcast({
+            "type": "correction",
+            "id": seg_id,
+            "text": corrected,
+            "slm_s": round(slm_s, 1),
+            "changed": changed,
+            "slm_queue": slm_queue.qsize(),
         })
 
 
